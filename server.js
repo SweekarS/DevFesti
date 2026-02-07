@@ -1,8 +1,8 @@
 import express from "express";
 import cors from "cors";
 
-import invoicesRouter from "./Routes/invoices.js";
-import vendorsRouter from "./Routes/vendors.js";
+import invoicesRouter from "./routes/invoices.js";
+import vendorsRouter from "./routes/vendors.js";
 import paymentsRouter from "./routes/payments.js";
 
 const app = express();

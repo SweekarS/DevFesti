@@ -1,7 +1,7 @@
 import express from "express";
 import { nanoid } from "nanoid";
 import { db, getOrCreateVendor, findVendorByName } from "../db.js";
-import { scoreInvoice } from "../riskEngine.js";
+import { scoreInvoice, fetchMLScore } from "../riskEngine.js";
 
 const router = express.Router();
 
@@ -64,10 +64,16 @@ router.post("/send", async (req, res) => {
     payments: db.payments
   });
 
-  // ML placeholder (plug teammate here)
-  // For now: ml_score=0 and no ml_flags, so your demo still works.
-  const ml_score = 0;
-  const ml_flags = [];
+  // ML scoring (calls external LLM safely, falls back to 0 on error)
+  let ml_score = 0;
+  let ml_flags = [];
+  try {
+    const ml = await fetchMLScore(invoice, { timeout: 3000 });
+    ml_score = ml.ml_score || 0;
+    ml_flags = ml.ml_flags || [];
+  } catch (e) {
+    // swallow - safe defaults already set above
+  }
 
   // Combine into final
   const final_score = Math.max(

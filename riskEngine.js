@@ -209,3 +209,42 @@ export function scoreInvoice({ invoice, existingInvoices, vendorProfile, payment
 
   return { rule_score: score, flags, fingerprint: fp };
 }
+
+/**
+ * fetchMLScore(invoice)
+ * - Calls external ML/LLM scoring endpoint (via `process.env.ML_SCORE_URL`).
+ * - Returns { ml_score: 0..100, ml_flags: [] } safely.
+ * - Falls back to zeros on error or timeout (non-blocking).
+ */
+export async function fetchMLScore(invoice, { timeout = 3000 } = {}) {
+  const url = process.env.ML_SCORE_URL;
+  if (!url) return { ml_score: 0, ml_flags: [] };
+
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(process.env.ML_API_KEY ? { Authorization: `Bearer ${process.env.ML_API_KEY}` } : {})
+      },
+      body: JSON.stringify({ invoice }),
+      signal: controller.signal
+    });
+    clearTimeout(id);
+
+    if (!res.ok) throw new Error(`ML service returned ${res.status}`);
+
+    const json = await res.json();
+    const rawScore = Number(json.ml_score ?? json.score ?? 0);
+    const ml_score = Number.isFinite(rawScore) ? Math.max(0, Math.min(100, rawScore)) : 0;
+    const ml_flags = Array.isArray(json.ml_flags) ? json.ml_flags : [];
+
+    return { ml_score, ml_flags };
+  } catch (err) {
+    clearTimeout(id);
+    return { ml_score: 0, ml_flags: [] };
+  }
+}
