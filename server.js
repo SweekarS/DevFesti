@@ -3,6 +3,7 @@ import cors from "cors";
 
 import invoicesRouter from "./Routes/invoices.js";
 import vendorsRouter from "./Routes/vendors.js";
+import paymentsRouter from "./routes/payments.js";
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.get("/", (req, res) => {
 
 app.use("/invoices", invoicesRouter);
 app.use("/vendors", vendorsRouter);
+app.use("/payments", paymentsRouter);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

@@ -1,5 +1,3 @@
-// Core scoring logic: duplicates + basic fraud signals.
-
 function normalizeVendorName(v) {
   return (v || "").trim().toLowerCase();
 }
@@ -23,6 +21,7 @@ function daysBetween(dateA, dateB) {
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
 
+// Edit distance + similarity for soft duplicate
 function editDistance(a, b) {
   const s = a || "";
   const t = b || "";
@@ -64,7 +63,7 @@ function fingerprint({ vendorName, invoiceNumber, amount, invoiceDate }) {
   ].join("|");
 }
 
-export function scoreInvoice({ invoice, existingInvoices, vendorProfile }) {
+export function scoreInvoice({ invoice, existingInvoices, vendorProfile, payments }) {
   const flags = [];
   let score = 0;
 
@@ -72,8 +71,27 @@ export function scoreInvoice({ invoice, existingInvoices, vendorProfile }) {
   const invNum = normalizeInvoiceNumber(invoice.invoice_number);
   const invDate = normalizeDate(invoice.invoice_date);
   const amt = Number(invoice.amount_total || 0);
+  const tax = (invoice.tax_id || "").trim();
+  const iban = (invoice.iban || "").trim();
 
-  // Hard duplicates (exact fingerprint match)
+  // 0) ALREADY_PAID check (only if same vendor + same invoice_number + same-ish amount was PAID)
+  const paidMatch = (payments || []).find(p =>
+    p.vendor_name_norm === vName &&
+    p.invoice_number_norm === invNum &&
+    Math.abs(Number(p.amount_total) - amt) <= 1
+  );
+
+  if (paidMatch) {
+    score += 85;
+    flags.push({
+      type: "ALREADY_PAID",
+      severity: "HIGH",
+      explanation: "This invoice number matches a previously PAID invoice for this vendor (duplicate payment risk).",
+      evidence: { matched_payment_id: paidMatch.payment_id, matched_invoice_id: paidMatch.invoice_id }
+    });
+  }
+
+  // 1) Hard duplicate (submitted before in this system)
   const fp = fingerprint({
     vendorName: invoice.vendor_name,
     invoiceNumber: invoice.invoice_number,
@@ -87,70 +105,107 @@ export function scoreInvoice({ invoice, existingInvoices, vendorProfile }) {
     flags.push({
       type: "DUPLICATE_HARD",
       severity: "HIGH",
-      explanation: "Exact duplicate detected (same vendor, invoice #, amount, and date).",
+      explanation: "Exact duplicate detected among previously submitted invoices.",
       evidence: { matched_invoice_id: hardDupe.invoice_id }
     });
   }
 
-  // Check for soft duplicates within 3 days
-  const softDupes = existingInvoices.filter(x => {
-    const vMatch = similarity(vName, normalizeVendorName(x.vendor_name)) > 0.85;
-    const invMatch = similarity(invNum, normalizeInvoiceNumber(x.invoice_number)) > 0.8;
-    const amtMatch = Math.abs(amt - (x.amount_total || 0)) < 5;
-    const dateMatch = daysBetween(invDate, x.invoice_date_norm) <= 3;
-    return vMatch && invMatch && amtMatch && dateMatch;
-  });
+  // 2) Soft duplicates (similar invoice number, same vendor, close date, same/near amount)
+  const sameVendorInvoices = existingInvoices.filter(x => x.vendor_name_norm === vName);
 
-  if (softDupes.length > 0) {
-    score += 35;
+  let bestSoft = null;
+  for (const prev of sameVendorInvoices) {
+    const prevNum = prev.invoice_number_norm;
+    const numSim = similarity(invNum, prevNum);
+    const dateDiff = daysBetween(invDate, prev.invoice_date_norm);
+    const amtDiff = Math.abs(amt - prev.amount_total);
+
+    const looksClose =
+      numSim >= 0.82 &&
+      dateDiff <= 14 &&
+      (amtDiff <= 1 || (prev.amount_total > 0 && amtDiff / prev.amount_total <= 0.01));
+
+    if (looksClose) {
+      if (!bestSoft || numSim > bestSoft.numSim) {
+        bestSoft = { prev, numSim, dateDiff };
+      }
+    }
+  }
+
+  if (bestSoft && !hardDupe) {
+    score += 45;
     flags.push({
       type: "DUPLICATE_SOFT",
       severity: "MEDIUM",
-      explanation: `Similar invoice(s) found within 3 days.`,
-      evidence: { matched_invoice_id: softDupes[0].invoice_id }
+      explanation: "Potential duplicate: similar invoice number and similar amount/date for the same vendor.",
+      evidence: {
+        matched_invoice_id: bestSoft.prev.invoice_id,
+        invoice_number_similarity: Number(bestSoft.numSim.toFixed(2)),
+        days_apart: bestSoft.dateDiff
+      }
     });
   }
 
-  // Vendor profile checks
+  // 3) Vendor baseline checks (Tax ID + IBAN learned from PAID invoices)
   if (vendorProfile) {
-    // Check bank account
-    if (invoice.bank_account && vendorProfile.knownBankAccounts) {
-      const isKnown = vendorProfile.knownBankAccounts.some(
-        acc => (acc || "").toLowerCase().includes((invoice.bank_account || "").slice(-4).toLowerCase())
-      );
-      if (!isKnown) {
-        score += 25;
-        flags.push({
-          type: "UNUSUAL_BANK_ACCOUNT",
-          severity: "MEDIUM",
-          explanation: "Bank account not in vendor's known list.",
-          evidence: {}
-        });
-      }
+    // Tax ID mismatch
+    if (tax && vendorProfile.knownTaxIds.length > 0 && !vendorProfile.knownTaxIds.includes(tax)) {
+      score += 35;
+      flags.push({
+        type: "TAX_ID_MISMATCH",
+        severity: "HIGH",
+        explanation: "Tax ID is not one we’ve previously seen for this vendor (learned from paid history).",
+        evidence: { provided_tax_id: tax }
+      });
     }
 
-    // Check amount range
-    if (vendorProfile.typicalMin && vendorProfile.typicalMax) {
-      if (amt < vendorProfile.typicalMin || amt > vendorProfile.typicalMax) {
+    // IBAN mismatch (highest-value scam detection)
+    if (iban && vendorProfile.knownIbans.length > 0 && !vendorProfile.knownIbans.includes(iban)) {
+      score += 55;
+      flags.push({
+        type: "IBAN_MISMATCH",
+        severity: "HIGH",
+        explanation: "IBAN is not one we’ve previously used for this vendor (high-risk payment detail change).",
+        evidence: { provided_iban: iban }
+      });
+    }
+
+    // Amount outlier vs learned range
+    const min = vendorProfile.typicalMin;
+    const max = vendorProfile.typicalMax;
+    if (Number.isFinite(amt) && amt > 0 && (min !== null || max !== null)) {
+      if (min !== null && amt < min) {
         score += 15;
         flags.push({
-          type: "AMOUNT_OUT_OF_RANGE",
+          type: "AMOUNT_LOW_OUTLIER",
           severity: "LOW",
-          explanation: `Amount outside vendor's typical range (${vendorProfile.typicalMin}-${vendorProfile.typicalMax}).`,
-          evidence: {}
+          explanation: "Invoice amount is below the vendor’s typical paid range.",
+          evidence: { amount: amt, typicalMin: min, typicalMax: max }
+        });
+      }
+      if (max !== null && amt > max) {
+        score += 25;
+        flags.push({
+          type: "AMOUNT_HIGH_OUTLIER",
+          severity: "MEDIUM",
+          explanation: "Invoice amount is above the vendor’s typical paid range.",
+          evidence: { amount: amt, typicalMin: min, typicalMax: max }
         });
       }
     }
   }
+
+  // Cap
+  score = Math.max(0, Math.min(100, score));
 
   if (flags.length === 0) {
     flags.push({
       type: "NO_FLAGS",
       severity: "INFO",
-      explanation: "No obvious duplicate/fraud signals detected.",
+      explanation: "No obvious duplicate or vendor-baseline mismatch signals detected.",
       evidence: {}
     });
   }
 
-  return { score, flags, fingerprint: fp };
+  return { rule_score: score, flags, fingerprint: fp };
 }
