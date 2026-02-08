@@ -14,6 +14,22 @@ app.use(express.json({ limit: "5mb" }));
 app.get("/", (req, res) => {
   res.json({ ok: true, service: "invoice-risk-backend" });
 });
+app.post("/risk-score", async (req, res) => {
+  try {
+    const mlResp = await fetch("http://localhost:5000/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req.body),
+    });
+
+    const data = await mlResp.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "ML service unavailable", details: String(err) });
+  }
+});
+
+
 
 app.use("/auth", authRouter);
 app.use("/invoices", invoicesRouter);
