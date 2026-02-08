@@ -106,33 +106,100 @@ export function Dashboard() {
     navigate('/');
   };
 
-  const handleFileUpload = async (files: File[], priceCheck: boolean) => {
-    // Step 1: Quick duplicate check before full analysis
-    // TODO: Replace with actual API call to check for duplicates
-    // const res = await fetch('/api/check-duplicate', { method: 'POST', body: formData });
-    // const { isDuplicate, matchedInvoice } = await res.json();
+// Add new state for extracted data
+const [extractedData, setExtractedData] = useState<any>(null);
+const [uploadedFilePath, setUploadedFilePath] = useState<string>("");
 
-    // Simulate a quick duplicate check (30% chance of detecting a duplicate)
-    const isDuplicate = Math.random() > 0.7;
+// Step 1: Upload and extract invoice data (NO ML yet)
+const handleFileUpload = async (files: File[], priceCheck: boolean) => {
+  if (files.length === 0) return;
 
-    if (isDuplicate) {
-      setDuplicateWarning({
-        show: true,
-        files,
-        priceCheck,
-        matchedInvoice: {
-          invoiceNumber: `INV-${Math.floor(Math.random() * 10000)}`,
-          vendor: "Acme Corporation Ltd.",
-          amount: `$${(Math.random() * 50000 + 1000).toFixed(2)}`,
-          paidDate: new Date(Date.now() - Math.floor(Math.random() * 30) * 86400000).toLocaleDateString(),
-        },
-      });
-      return;
-    }
+  setIsAnalyzing(true);
+  setCurrentView('analysis');
 
-    // No duplicate — proceed directly
-    runFullAnalysis(files, priceCheck);
-  };
+  const formData = new FormData();
+  formData.append('invoice', files[0]); // Just first file for now
+
+  try {
+    // Upload and extract data
+    const uploadRes = await fetch('http://localhost:3001/invoices/upload', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!uploadRes.ok) throw new Error('Upload failed');
+
+    const result = await uploadRes.json();
+    
+    setExtractedData(result.data);
+    setUploadedFilePath(result.file_path);
+    setPriceCheckEnabled(priceCheck);
+    
+    // Show extracted data immediately
+    setAnalysisData({
+      fraudScore: 0, // Will be filled by ML later
+      duplicateFound: false,
+      taxIdValid: true,
+      ibanValid: true,
+      warnings: [],
+      invoiceData: {
+        invoiceNumber: result.data.invoice_number || 'N/A',
+        amount: `$${result.data.total_amount || '0'}`,
+        vendor: result.data.vendor_name || 'Unknown',
+        date: result.data.invoice_date || 'N/A',
+        taxId: result.data.tax_id || 'N/A',
+        iban: result.data.iban || 'N/A'
+      }
+    });
+    
+    setIsAnalyzing(false);
+
+  } catch (error) {
+    console.error('Upload failed:', error);
+    setIsAnalyzing(false);
+    // Show error to user
+  }
+};
+
+// Step 2: Run ML analysis when user clicks button
+const handleRunMLAnalysis = async () => {
+  if (!uploadedFilePath) return;
+
+  setIsAnalyzing(true);
+
+  try {
+    const mlRes = await fetch(
+      `http://localhost:3001/invoices/analyze/${encodeURIComponent(uploadedFilePath)}`,
+      { method: 'POST' }
+    );
+
+    if (!mlRes.ok) throw new Error('ML analysis failed');
+
+    const mlResult = await mlRes.json();
+
+    // Update analysis data with ML results
+    setAnalysisData(prev => ({
+      ...prev!,
+      fraudScore: mlResult.ml_score * 100 || 0,
+      duplicateFound: mlResult.duplicate_risk?.risk_level !== 'LOW',
+      warnings: mlResult.duplicate_risk?.reasons || [],
+      priceCheck: priceCheckEnabled ? {
+        enabled: true,
+        items: [], // Parse from mlResult.price_check if needed
+        overallVerdict: mlResult.price_check?.assessment === 'OVERPRICED' ? 'overpriced' : 
+                       mlResult.price_check?.assessment === 'OK' ? 'fair' : 'underpriced',
+        totalInvoice: extractedData?.total_amount || 0,
+        totalMarket: mlResult.price_check?.estimated_market_low || 0,
+      } : undefined
+    }));
+
+    setIsAnalyzing(false);
+
+  } catch (error) {
+    console.error('ML analysis failed:', error);
+    setIsAnalyzing(false);
+  }
+};
 
   const handleDuplicateProceed = () => {
     const { files, priceCheck } = duplicateWarning;
