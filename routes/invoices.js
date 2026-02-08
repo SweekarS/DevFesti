@@ -31,7 +31,7 @@ router.get("/:id", (req, res) => {
 });
 
 // Submit invoice for scoring
-router.post("/send", async (req, res) => {
+router.post("/", async (req, res) => {
   const b = req.body || {};
 
   const invoice = {
