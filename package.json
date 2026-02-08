@@ -1,3 +1,4 @@
+cat > package.json << 'EOF'
 {
   "name": "invoice-fraud-detection-app",
   "version": "0.1.0",
@@ -63,3 +64,4 @@
     "build": "vite build"
   }
 }
+EOF
