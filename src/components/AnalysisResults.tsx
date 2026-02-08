@@ -58,9 +58,18 @@ interface AnalysisResultsProps {
   isAnalyzing: boolean;
   onNewUpload: () => void;
   priceCheckEnabled?: boolean;
+  onRunMLAnalysis?: () => void; // ADD THIS
+  mlAnalysisReady?: boolean; // ADD THIS
 }
 
-export function AnalysisResults({ data, isAnalyzing, onNewUpload, priceCheckEnabled }: AnalysisResultsProps) {
+export function AnalysisResults({ 
+  data, 
+  isAnalyzing, 
+  onNewUpload, 
+  priceCheckEnabled,
+  onRunMLAnalysis, // ADD THIS
+  mlAnalysisReady // ADD THIS
+}: AnalysisResultsProps) {
   const [isPaid, setIsPaid] = useState<boolean | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -158,25 +167,43 @@ export function AnalysisResults({ data, isAnalyzing, onNewUpload, priceCheckEnab
   return (
     <div className="space-y-6">
       {/* Header */}
-      <motion.div
-        className="flex items-center justify-between"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
+      {/* Header */}
+<motion.div
+  className="flex items-center justify-between"
+  initial={{ opacity: 0, y: -20 }}
+  animate={{ opacity: 1, y: 0 }}
+>
+  <div>
+    <h2 className="text-gold-light mb-2">Analysis Complete</h2>
+    <p className="text-gray-400">Review the results and confirm payment status</p>
+  </div>
+  <div className="flex items-center gap-3">
+    {/* ML Analysis Button - shows when data extracted but ML not run yet */}
+    {mlAnalysisReady && onRunMLAnalysis && data.fraudScore === 0 && (
+      <motion.button
+        onClick={onRunMLAnalysis}
+        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald to-emerald-dark text-white rounded-xl font-semibold shadow-lg shadow-emerald/30 hover:shadow-emerald/50 transition-all duration-300"
+        whileHover={{ scale: 1.05, y: -2 }}
+        whileTap={{ scale: 0.95 }}
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
       >
-        <div>
-          <h2 className="text-gold-light mb-2">Analysis Complete</h2>
-          <p className="text-gray-400">Review the results and confirm payment status</p>
-        </div>
-        <motion.button
-          onClick={onNewUpload}
-          className="flex items-center gap-2 px-4 py-2 bg-navy-light/50 border border-gold/30 rounded-lg text-gold-light hover:bg-navy-light hover:border-gold/50 transition-all duration-300"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          New Upload
-        </motion.button>
-      </motion.div>
+        <Shield className="w-5 h-5" />
+        Run ML Fraud Detection
+      </motion.button>
+    )}
+    {/* New Upload Button */}
+    <motion.button
+      onClick={onNewUpload}
+      className="flex items-center gap-2 px-4 py-2 bg-navy-light/50 border border-gold/30 rounded-lg text-gold-light hover:bg-navy-light hover:border-gold/50 transition-all duration-300"
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+    >
+      <ArrowLeft className="w-4 h-4" />
+      New Upload
+    </motion.button>
+  </div>
+</motion.div>
 
       {/* Risk Score Card */}
       <motion.div
