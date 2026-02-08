@@ -11,9 +11,30 @@ import {
   Hash,
   ArrowLeft,
   Save,
-  Shield
+  Shield,
+  Search,
+  TrendingUp,
+  TrendingDown,
+  Minus
 } from "lucide-react";
 import { useState } from "react";
+
+interface PriceCheckItem {
+  item: string;
+  invoicePrice: number;
+  marketPrice: number;
+  verdict: 'fair' | 'overpriced' | 'underpriced';
+  differencePercent: number;
+  source: string;
+}
+
+interface PriceCheckData {
+  enabled: boolean;
+  items: PriceCheckItem[];
+  overallVerdict: 'fair' | 'overpriced' | 'underpriced';
+  totalInvoice: number;
+  totalMarket: number;
+}
 
 interface AnalysisData {
   fraudScore: number;
@@ -29,15 +50,17 @@ interface AnalysisData {
     taxId: string;
     iban: string;
   };
+  priceCheck?: PriceCheckData;
 }
 
 interface AnalysisResultsProps {
   data: AnalysisData | null;
   isAnalyzing: boolean;
   onNewUpload: () => void;
+  priceCheckEnabled?: boolean;
 }
 
-export function AnalysisResults({ data, isAnalyzing, onNewUpload }: AnalysisResultsProps) {
+export function AnalysisResults({ data, isAnalyzing, onNewUpload, priceCheckEnabled }: AnalysisResultsProps) {
   const [isPaid, setIsPaid] = useState<boolean | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -95,7 +118,8 @@ export function AnalysisResults({ data, isAnalyzing, onNewUpload }: AnalysisResu
               "Checking for duplicates...",
               "Validating Tax ID...",
               "Verifying IBAN...",
-              "Running fraud detection..."
+              "Running fraud detection...",
+              ...(priceCheckEnabled ? ["Scraping market prices..."] : [])
             ].map((step, index) => (
               <motion.div
                 key={index}
@@ -266,6 +290,117 @@ export function AnalysisResults({ data, isAnalyzing, onNewUpload }: AnalysisResu
           <DetailItem icon={CreditCard} label="IBAN" value={data.invoiceData.iban} />
         </div>
       </motion.div>
+
+      {/* Price Check Results */}
+      {data.priceCheck?.enabled && (
+        <motion.div
+          className="bg-gradient-to-br from-navy-light/50 to-navy/50 backdrop-blur-sm border border-gold/20 rounded-2xl p-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.75 }}
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <Search className="w-6 h-6 text-gold" />
+              <h3 className="text-gold-light">Price Check Results</h3>
+            </div>
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+              data.priceCheck.overallVerdict === 'overpriced'
+                ? 'bg-burgundy/20 border-burgundy/30 text-burgundy-light'
+                : data.priceCheck.overallVerdict === 'underpriced'
+                ? 'bg-emerald/20 border-emerald/30 text-emerald-light'
+                : 'bg-gold/20 border-gold/30 text-gold-light'
+            }`}>
+              {data.priceCheck.overallVerdict === 'overpriced' && 'Overall: Overpriced'}
+              {data.priceCheck.overallVerdict === 'underpriced' && 'Overall: Below Market'}
+              {data.priceCheck.overallVerdict === 'fair' && 'Overall: Fair Price'}
+            </span>
+          </div>
+
+          {/* Summary Bar */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-navy-dark/30 rounded-xl p-4 text-center">
+              <p className="text-gray-400 text-xs mb-1">Invoice Total</p>
+              <p className="text-white text-xl font-bold">${data.priceCheck.totalInvoice.toLocaleString()}</p>
+            </div>
+            <div className="bg-navy-dark/30 rounded-xl p-4 text-center">
+              <p className="text-gray-400 text-xs mb-1">Market Average</p>
+              <p className="text-white text-xl font-bold">${data.priceCheck.totalMarket.toLocaleString()}</p>
+            </div>
+            <div className={`rounded-xl p-4 text-center ${
+              data.priceCheck.totalInvoice > data.priceCheck.totalMarket
+                ? 'bg-burgundy/10'
+                : 'bg-emerald/10'
+            }`}>
+              <p className="text-gray-400 text-xs mb-1">Difference</p>
+              <p className={`text-xl font-bold ${
+                data.priceCheck.totalInvoice > data.priceCheck.totalMarket
+                  ? 'text-burgundy-light'
+                  : 'text-emerald-light'
+              }`}>
+                {data.priceCheck.totalInvoice > data.priceCheck.totalMarket ? '+' : '-'}
+                ${Math.abs(data.priceCheck.totalInvoice - data.priceCheck.totalMarket).toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          {/* Line Items */}
+          <div className="space-y-3">
+            {data.priceCheck.items.map((item, index) => (
+              <motion.div
+                key={index}
+                className="bg-navy-dark/30 border border-gold/10 rounded-xl p-4"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.8 + index * 0.1 }}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                      item.verdict === 'overpriced'
+                        ? 'bg-burgundy/20'
+                        : item.verdict === 'underpriced'
+                        ? 'bg-emerald/20'
+                        : 'bg-gold/20'
+                    }`}>
+                      {item.verdict === 'overpriced' && <TrendingUp className="w-4 h-4 text-burgundy-light" />}
+                      {item.verdict === 'underpriced' && <TrendingDown className="w-4 h-4 text-emerald-light" />}
+                      {item.verdict === 'fair' && <Minus className="w-4 h-4 text-gold" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium text-sm">{item.item}</p>
+                      <p className="text-gray-500 text-xs mt-1">Sources: {item.source}</p>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="flex items-center gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-400 text-xs">Invoice</p>
+                        <p className="text-white font-semibold">${item.invoicePrice.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-xs">Market</p>
+                        <p className="text-white font-semibold">${item.marketPrice.toLocaleString()}</p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                        item.verdict === 'overpriced'
+                          ? 'bg-burgundy/20 text-burgundy-light'
+                          : item.verdict === 'underpriced'
+                          ? 'bg-emerald/20 text-emerald-light'
+                          : 'bg-gold/20 text-gold-light'
+                      }`}>
+                        {item.verdict === 'overpriced' && `+${item.differencePercent.toFixed(1)}%`}
+                        {item.verdict === 'underpriced' && `${item.differencePercent.toFixed(1)}%`}
+                        {item.verdict === 'fair' && `+${item.differencePercent.toFixed(1)}%`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Payment Status Question */}
       {!saved && (

@@ -1,9 +1,32 @@
+import { useMemo } from "react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router";
 import { Shield, TrendingUp, Database, CheckCircle, Zap, Lock } from "lucide-react";
 
+const CODE_SYMBOLS = [
+  "{}", "</>", "//", "=>", "()", "[]", "&&", "||", "!=", "===",
+  "if", "fn", "let", "var", "0x", "++", "<<", ">>", "**", ";",
+  "<%>", "#!", "~/", "::", "->", "<?", "@", "$_", "$", "/**",
+];
+
+function useCodeSnowflakes(count: number) {
+  return useMemo(() => {
+    return Array.from({ length: count }, (_, i) => ({
+      id: i,
+      symbol: CODE_SYMBOLS[Math.floor(Math.random() * CODE_SYMBOLS.length)],
+      left: Math.random() * 100,
+      size: Math.random() * 0.5 + 0.6,
+      opacity: Math.random() * 0.12 + 0.04,
+      duration: Math.random() * 18 + 14,
+      delay: Math.random() * 20,
+      drift: (Math.random() - 0.5) * 60,
+    }));
+  }, [count]);
+}
+
 export function LandingPage() {
   const navigate = useNavigate();
+  const snowflakes = useCodeSnowflakes(35);
 
   const features = [
     {
@@ -80,6 +103,36 @@ export function LandingPage() {
             delay: 2
           }}
         />
+      </div>
+
+      {/* Falling code snowflakes */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {snowflakes.map((flake) => (
+          <motion.span
+            key={flake.id}
+            className="absolute font-mono text-gold select-none"
+            style={{
+              left: `${flake.left}%`,
+              top: -30,
+              fontSize: `${flake.size}rem`,
+              opacity: 0,
+            }}
+            animate={{
+              y: ["0vh", "110vh"],
+              x: [0, flake.drift],
+              opacity: [0, flake.opacity, flake.opacity, 0],
+              rotate: [0, (Math.random() - 0.5) * 40],
+            }}
+            transition={{
+              duration: flake.duration,
+              delay: flake.delay,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          >
+            {flake.symbol}
+          </motion.span>
+        ))}
       </div>
 
       {/* Navigation */}
@@ -176,24 +229,14 @@ export function LandingPage() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1 + index * 0.1 }}
-              whileHover={{ y: -8, scale: 1.02 }}
             >
-              {/* Shine effect on hover */}
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-gold/5 to-transparent rounded-2xl"
-                initial={{ x: "-100%" }}
-                whileHover={{ x: "100%" }}
-                transition={{ duration: 0.8 }}
-              />
               
               <div className="relative z-10">
-                <motion.div
+                <div
                   className="w-14 h-14 bg-gradient-to-br from-gold/20 to-emerald/20 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300"
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.6 }}
                 >
                   <feature.icon className="w-7 h-7 text-gold" />
-                </motion.div>
+                </div>
                 
                 <h3 className="mb-3 text-gold-light">
                   {feature.title}

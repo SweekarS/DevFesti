@@ -1,15 +1,16 @@
 import { motion } from "motion/react";
 import { useState, useRef } from "react";
-import { Upload, FileText, Image, X, Sparkles } from "lucide-react";
+import { Upload, FileText, Image, X, Sparkles, Search } from "lucide-react";
 
 interface UploadZoneProps {
-  onUpload: (files: File[]) => void;
+  onUpload: (files: File[], priceCheck: boolean) => void;
 }
 
 export function UploadZone({ onUpload }: UploadZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [pastedText, setPastedText] = useState("");
+  const [priceCheck, setPriceCheck] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -47,7 +48,7 @@ export function UploadZone({ onUpload }: UploadZoneProps) {
 
   const handleAnalyze = () => {
     if (selectedFiles.length > 0 || pastedText.trim()) {
-      onUpload(selectedFiles);
+      onUpload(selectedFiles, priceCheck);
     }
   };
 
@@ -198,6 +199,43 @@ export function UploadZone({ onUpload }: UploadZoneProps) {
           placeholder="Paste invoice details here (invoice number, amount, vendor, tax ID, IBAN, etc.)..."
           className="w-full h-40 bg-navy-dark/50 border border-gold/20 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:border-gold/50 focus:ring-2 focus:ring-gold/20 transition-all duration-300 resize-none"
         />
+      </motion.div>
+
+      {/* Price Check Option */}
+      <motion.div
+        className="bg-gradient-to-br from-navy-light/50 to-navy/50 backdrop-blur-sm border border-gold/20 rounded-2xl p-6 hover:border-gold/30 transition-all duration-300"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35 }}
+      >
+        <label className="flex items-center gap-4 cursor-pointer group">
+          <div className="relative flex-shrink-0">
+            <input
+              type="checkbox"
+              checked={priceCheck}
+              onChange={(e) => setPriceCheck(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-12 h-7 bg-navy-dark/50 border border-gold/30 rounded-full peer-checked:bg-gradient-to-r peer-checked:from-emerald peer-checked:to-emerald-dark peer-checked:border-emerald/50 transition-all duration-300" />
+            <div className="absolute top-0.5 left-0.5 w-6 h-6 bg-gray-400 rounded-full transition-all duration-300 peer-checked:translate-x-5 peer-checked:bg-white shadow-lg" />
+          </div>
+          <div className="flex items-center gap-3 flex-1">
+            <Search className="w-5 h-5 text-gold" />
+            <div>
+              <p className="text-white font-semibold">Would you like to price check?</p>
+              <p className="text-gray-400 text-sm">Scrapes the internet to verify if you're getting a fair price or being overcharged</p>
+            </div>
+          </div>
+          {priceCheck && (
+            <motion.span
+              className="px-3 py-1 bg-emerald/20 border border-emerald/30 rounded-full text-emerald-light text-xs font-semibold flex-shrink-0"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+            >
+              Enabled
+            </motion.span>
+          )}
+        </label>
       </motion.div>
 
       {/* Analyze Button */}

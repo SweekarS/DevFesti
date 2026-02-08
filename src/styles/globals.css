@@ -91,3 +91,43 @@ p {
   );
   background-size: 1000px 100%;
 }
+
+/* ── Accessibility: High Contrast ── */
+html.high-contrast {
+  --color-gold: #FFD54F;
+  --color-gold-light: #FFF9C4;
+  --color-gold-dark: #F9A825;
+  --color-navy: #000000;
+  --color-navy-light: #0D1B2A;
+  --color-navy-dark: #000000;
+  --color-emerald: #00E676;
+  --color-emerald-light: #69F0AE;
+  --color-emerald-dark: #00C853;
+  --color-burgundy: #FF1744;
+  --color-burgundy-light: #FF5252;
+  --color-burgundy-dark: #D50000;
+}
+
+html.high-contrast body {
+  color: #ffffff;
+}
+
+html.high-contrast * {
+  border-color: rgba(255, 213, 79, 0.4) !important;
+}
+
+/* ── Accessibility: Reduced Motion ── */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ── Accessibility: Large Cursor ── */
+html.large-pointer,
+html.large-pointer * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M4 4 L4 28 L11 21 L18 28 L22 24 L15 17 L24 17 Z' fill='white' stroke='black' stroke-width='2'/%3E%3C/svg%3E") 4 4, auto;
+}
