@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gold: #D4AF37;
+  --color-gold-light: #F4E4B0;
+  --color-gold-dark: #B8941F;
+  --color-navy: #0A1F44;
+  --color-navy-light: #1A3A6B;
+  --color-navy-dark: #050F22;
+  --color-emerald: #2D5F4F;
+  --color-emerald-light: #3D8A6F;
+  --color-emerald-dark: #1D3F2F;
+  --color-burgundy: #800020;
+  --color-burgundy-light: #A0003F;
+  --color-burgundy-dark: #600018;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--color-navy-dark);
+  color: #ffffff;
+}
+
+h1 {
+  font-size: 3.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 2.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+p {
+  line-height: 1.6;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.shimmer {
+  animation: shimmer 3s infinite linear;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(212, 175, 55, 0.3) 50%,
+    transparent 100%
+  );
+  background-size: 1000px 100%;
+}
