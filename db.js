@@ -1,4 +1,5 @@
 export const db = {
+  users: [],
   vendors: [],
   invoices: [],
   payments: []
@@ -55,4 +56,19 @@ export function updateVendorBaselineFromPaidInvoice(vendor, invoice) {
   }
 
   vendor.updated_at = new Date().toISOString();
+}
+
+export function addUser(username, hashedPassword) {
+  const user = {
+    user_id: `u_${Math.random().toString(16).slice(2, 10)}`,
+    username: username.trim(),
+    password: hashedPassword,
+    created_at: new Date().toISOString()
+  };
+  db.users.push(user);
+  return user;
+}
+
+export function findUserByUsername(username) {
+  return db.users.find(u => u.username === username.trim());
 }

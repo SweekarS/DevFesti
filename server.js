@@ -4,6 +4,7 @@ import cors from "cors";
 import invoicesRouter from "./routes/invoices.js";
 import vendorsRouter from "./routes/vendors.js";
 import paymentsRouter from "./routes/payments.js";
+import authRouter from "./routes/auth.js";
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.get("/", (req, res) => {
   res.json({ ok: true, service: "invoice-risk-backend" });
 });
 
+app.use("/auth", authRouter);
 app.use("/invoices", invoicesRouter);
 app.use("/vendors", vendorsRouter);
 app.use("/payments", paymentsRouter);
