@@ -8,4 +8,6 @@
   Run `npm i` to install the dependencies.
 
   Run `npm run dev` to start the development server.
+
+  Deployment Note: The system runs locally with the provided setup instructions. Due to hackathon time constraints, full production deployment was not finalized.
   
